@@ -725,6 +725,7 @@ function playFigure(name) {
   if (!box || !hasFig(name)) return;
   // 움직임을 줄이도록 설정한 기기에서는 시작 자세와 끝 자세를 나란히 보여 준다
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) { box.innerHTML = figSvg(name, 0, pri, sec) + figSvg(name, 1, pri, sec); return; }
+  box.innerHTML = figSvg(name, 0, pri, sec); // 첫 화면은 바로 그린다 (화면이 가려져 있으면 애니메이션 프레임이 오지 않는다)
   const t0 = performance.now();
   const step = now => { const ph = ((now - t0) / 2600) % 1; box.innerHTML = figSvg(name, (1 - Math.cos(ph * 2 * Math.PI)) / 2, pri, sec); figFrame = requestAnimationFrame(step); };
   figFrame = requestAnimationFrame(step);
