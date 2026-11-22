@@ -2,53 +2,144 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#111827">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#020202">
 <link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
 <title>운동 기록</title>
 <style>
-:root { color-scheme: light dark; --line: #8886; --accent: #2563eb; }
+/* 시각 방향(검정 바탕, 라임 포인트, 링·글로우 차트)은 21st.dev의 "Fitness Bento Grid"(abushaidislam7)와
+   "Activity Card"(kokonutd)를 참고해 바닐라 CSS로 옮겼다. */
+:root {
+  color-scheme: dark light;
+  --bg: #020202; --card: #121212; --surface: #1c1c1e; --line: rgba(255, 255, 255, .08);
+  --text: #f5f5f5; --muted: #8e8e93; --accent: #9af500; --accent-bg: #9af500; --ink: #0a0a0a; --pink: #f62064;
+}
+@media (prefers-color-scheme: light) {
+  :root { --bg: #f5f6f7; --card: #fff; --surface: #eef0f2; --line: #e2e5e9; --text: #0a0a0a; --muted: #5b6472; --accent: #3f6212; --accent-bg: #84cc16; }
+}
 * { box-sizing: border-box; }
-body { margin: 0 auto; max-width: 560px; padding: 12px 12px 76px; font: 16px/1.5 system-ui, sans-serif; }
-h2 { font-size: 1.15rem; margin: 12px 0 8px; }
-h3 { font-size: 1rem; margin: 0; }
-small, .muted { opacity: .75; font-weight: normal; font-size: .85rem; }
-input, button, textarea { font: inherit; }
-input[type=number] { width: 4.6em; padding: 9px 6px; text-align: center; }
-input[type=date] { padding: 8px 6px; }
-input[type=checkbox] { width: 22px; height: 22px; }
-button { min-height: 44px; padding: 0 14px; border: 1px solid var(--line); border-radius: 8px; background: none; color: inherit; }
-button[aria-pressed=true], button[aria-current=page], button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
-.card { border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin: 12px 0; }
-.set { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
-.set span { width: 1.2em; opacity: .75; }
-.up { color: light-dark(#15803d, #4ade80); }
-textarea { width: 100%; min-height: 9.5em; margin-bottom: 8px; }
-nav { position: fixed; inset: auto 0 0 0; display: flex; background: Canvas; border-top: 1px solid var(--line); }
-nav button { flex: 1; border: 0; border-radius: 0; min-height: 56px; }
+body {
+  margin: 0 auto; max-width: 560px; padding: 14px 14px calc(160px + env(safe-area-inset-bottom));
+  background: var(--bg); color: var(--text); -webkit-tap-highlight-color: transparent;
+  font: 16px/1.45 system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+}
+h1 { font-size: 28px; font-weight: 800; letter-spacing: -.03em; margin: 10px 0 2px; }
+h3 { font-size: 16px; margin: 0; letter-spacing: -.01em; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.muted { color: var(--muted); font-size: 13px; margin: 4px 0 0; }
+.cap { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.card { display: block; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin-top: 12px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.grid2 > .card { margin-top: 12px; }
+.between { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.pill { border-radius: 999px; border: 1px solid var(--line); background: var(--surface); padding: 0 14px; min-height: 40px; font-size: 13px; font-weight: 700; }
+.pill[aria-pressed=true], .primary { background: var(--accent-bg); color: var(--ink); border-color: transparent; }
+.primary { border-radius: 999px; min-height: 48px; padding: 0 20px; font-weight: 800; border: 0; }
+.tag { border-radius: 999px; border: 1px solid var(--line); background: var(--surface); padding: 4px 10px; font-size: 11px; font-weight: 700; }
+.up { color: var(--ink); background: var(--accent-bg); border-radius: 999px; padding: 1px 8px; font-size: 11px; font-weight: 800; }
+
+.hero { display: flex; justify-content: space-between; align-items: center; background: linear-gradient(180deg, var(--surface), var(--card)); margin-top: 0; }
+.days { display: flex; gap: 8px; overflow-x: auto; padding: 12px 0 2px; scrollbar-width: none; }
+.days .pill { flex: none; }
+
+input[type=number], select, textarea, input[type=date] { background: var(--surface); border: 1px solid transparent; border-radius: 12px; }
+input[type=number] { width: 100%; padding: 12px 26px; text-align: center; font-weight: 700; font-size: 18px; font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
+input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input::placeholder { color: var(--muted); opacity: .65; font-weight: 500; }
+input[type=date] { border-radius: 999px; padding: 8px 12px; font-size: 13px; font-weight: 700; min-height: 40px; }
+input[type=checkbox] { width: 24px; height: 24px; accent-color: var(--accent-bg); flex: none; }
+select { width: 100%; min-height: 48px; padding: 0 12px; font-weight: 700; }
+textarea { width: 100%; min-height: 9.5em; padding: 10px 12px; margin-top: 8px; font-size: 14px; }
+.field { position: relative; display: block; }
+.field > span { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 11px; color: var(--muted); pointer-events: none; }
+.stat { display: flex; flex-direction: column; gap: 8px; }
+.check { display: flex; gap: 12px; align-items: center; }
+
+.set { display: grid; grid-template-columns: 22px 1fr 1fr 48px; gap: 8px; align-items: center; margin-top: 10px; }
+.idx { color: var(--muted); font-weight: 700; font-size: 13px; text-align: center; }
+.ok { width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--muted); display: grid; place-items: center; padding: 0; }
+.ok svg { width: 22px; height: 22px; }
+.set.done .ok { background: var(--accent-bg); color: var(--ink); border-color: transparent; }
+.set.done input { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+
+svg.icon { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ring { width: 78px; height: 78px; display: block; }
+.ring circle { fill: none; stroke-width: 6.5; }
+.ring .track { stroke: color-mix(in srgb, var(--accent) 16%, transparent); }
+.ring .prog { stroke: var(--accent); stroke-linecap: round; transition: stroke-dashoffset .4s; }
+.ring text { fill: var(--text); font-size: 13px; font-weight: 800; }
+
+.num { font-size: 32px; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; margin-top: 6px; }
+.num small { font-size: 14px; color: var(--muted); font-weight: 700; margin-left: 2px; }
+.delta { font-size: 13px; color: var(--accent); margin-left: 6px; letter-spacing: 0; }
+.chart { width: 100%; height: auto; display: block; margin-top: 8px; overflow: visible; }
+.chart path { fill: none; stroke: var(--accent); stroke-linecap: round; stroke-linejoin: round; }
+.chart .line { stroke-width: 2.2; }
+.chart .glow { stroke-width: 5; opacity: .35; filter: blur(4px); }
+.chart .dot { fill: var(--accent); }
+.chart .halo { fill: var(--accent); opacity: .22; }
+.chart .goal { stroke: var(--pink); stroke-width: 1; stroke-dasharray: 4 4; }
+.axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+.meter { height: 8px; border-radius: 999px; background: var(--surface); margin-top: 12px; overflow: hidden; }
+.meter i { display: block; height: 100%; border-radius: 999px; background: var(--accent-bg); }
+.bars { display: flex; gap: 8px; align-items: flex-end; height: 96px; margin-top: 12px; }
+.bars i { flex: 1; min-height: 4px; border-radius: 6px 6px 3px 3px; opacity: .5; background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 70%, transparent), color-mix(in srgb, var(--accent) 16%, transparent)); }
+.bars i.now { opacity: 1; background: linear-gradient(180deg, var(--accent-bg), color-mix(in srgb, var(--accent) 35%, transparent)); }
+ul.plain { margin: 8px 0 0; padding-left: 18px; font-size: 14px; }
+ul.plain li { margin-top: 4px; }
+details { border-top: 1px solid var(--line); padding: 12px 0; }
+summary { font-weight: 700; min-height: 28px; cursor: pointer; }
+
+#rest { position: fixed; left: 14px; right: 14px; max-width: 532px; margin: 0 auto; bottom: calc(80px + env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 8px; padding: 10px 10px 12px 18px; background: var(--accent-bg); color: var(--ink); border-radius: 18px; overflow: hidden; box-shadow: 0 8px 30px rgba(0, 0, 0, .4); }
+#rest[hidden] { display: none; }
+#rest::after { content: ''; position: absolute; left: 0; bottom: 0; height: 4px; width: calc(var(--p, 1) * 100%); background: var(--ink); opacity: .35; transition: width .25s linear; }
+#rest .cap { color: inherit; opacity: .7; }
+#rest b { font-size: 26px; font-variant-numeric: tabular-nums; flex: 1; }
+#rest button { border: 0; border-radius: 999px; background: rgba(0, 0, 0, .14); min-height: 40px; padding: 0 12px; font-weight: 700; font-size: 13px; }
+
+nav { position: fixed; left: 0; right: 0; width: max-content; margin: 0 auto; bottom: calc(12px + env(safe-area-inset-bottom)); display: flex; gap: 4px; padding: 6px; background: color-mix(in srgb, var(--card) 86%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid var(--line); border-radius: 999px; }
+nav button { display: flex; align-items: center; gap: 6px; border: 0; background: none; color: var(--muted); padding: 0 16px; min-height: 48px; border-radius: 999px; font-size: 13px; font-weight: 800; white-space: nowrap; }
+nav button[aria-current=page] { background: var(--accent-bg); color: var(--ink); }
+nav button:not([aria-current=page]) span { display: none; }
+nav svg { width: 22px; height: 22px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>
 <main id="app"></main>
-<nav>
-  <button data-view="today">오늘</button>
-  <button data-view="history">기록</button>
-  <button data-view="settings">설정</button>
+<div id="rest" hidden role="timer">
+  <span class="cap">휴식</span><b id="restTime"></b>
+  <button id="restAdd">+30초</button><button id="restSkip">건너뛰기</button>
+</div>
+<nav aria-label="화면 이동">
+  <button data-view="today" aria-label="오늘"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5v11M17.5 6.5v11M3 9.5v5M21 9.5v5M6.5 12h11"/></svg><span>오늘</span></button>
+  <button data-view="progress" aria-label="진행"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l5-6 4 3 8-9M15 5h5v5"/></svg><span>진행</span></button>
+  <button data-view="history" aria-label="기록"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg><span>기록</span></button>
+  <button data-view="settings" aria-label="설정"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg><span>설정</span></button>
 </nav>
 <script>
-const KEY = 'gymlog', ORDER = ['A', 'B', 'C'], STEP = 2.5;
-const CARDIO = '마무리 유산소 15분 (천국의 계단 또는 러닝머신 경사 걷기)';
+const KEY = 'gymlog', ORDER = ['A', 'B', 'C', 'D', 'E', 'F'], STEP = 2.5, TARGET_BF = 13, WEEK_GOAL = 6;
+const CARDIO = '마무리 유산소 15분 · 천국의 계단 또는 경사 걷기';
 const ex = (n, sets = 3, lo = 8, hi = 12) => ({ n, sets, lo, hi });
-// 주 6회: A B C A B C, 하루 휴식. 종목은 설정 탭에서 헬스장 기구에 맞게 바꾼다.
+// 주 6회, 부위별 주 2회. 1·2는 같은 부위를 다른 종목으로 한다. 종목은 설정 탭에서 헬스장 기구에 맞게 바꾼다.
 const DEFAULT_ROUTINE = {
-  A: { name: '밀기 (가슴·어깨·삼두)', ex: [ex('체스트 프레스 머신'), ex('인클라인 덤벨 프레스'), ex('숄더 프레스 머신'), ex('덤벨 사이드 레터럴 레이즈', 3, 12, 15), ex('케이블 푸시다운', 3, 10, 15)] },
-  B: { name: '당기기 (등·이두)', ex: [ex('랫 풀다운'), ex('시티드 로우 머신'), ex('리버스 펙덱 플라이', 3, 12, 15), ex('덤벨 컬', 3, 10, 15), ex('백 익스텐션', 3, 10, 15)] },
-  C: { name: '하체·복근', ex: [ex('레그 프레스'), ex('힙 쓰러스트 머신'), ex('레그 컬', 3, 10, 15), ex('레그 익스텐션', 3, 10, 15), ex('크런치 머신', 3, 12, 15)] },
+  A: { name: '밀기 1', focus: '가슴 중심 · 어깨 · 삼두', ex: [ex('체스트 프레스 머신'), ex('인클라인 덤벨 프레스'), ex('숄더 프레스 머신'), ex('덤벨 사이드 레터럴 레이즈', 3, 12, 15), ex('케이블 푸시다운', 3, 10, 15)] },
+  B: { name: '당기기 1', focus: '등 너비 · 이두', ex: [ex('랫 풀다운'), ex('시티드 로우 머신'), ex('리버스 펙덱 플라이', 3, 12, 15), ex('덤벨 컬', 3, 10, 15), ex('백 익스텐션', 3, 10, 15)] },
+  C: { name: '하체 1', focus: '대퇴사두 · 복근', ex: [ex('레그 프레스'), ex('레그 익스텐션', 3, 10, 15), ex('레그 컬', 3, 10, 15), ex('카프 레이즈', 3, 12, 15), ex('크런치 머신', 3, 12, 15)] },
+  D: { name: '밀기 2', focus: '어깨 중심 · 가슴 · 삼두', ex: [ex('덤벨 숄더 프레스'), ex('인클라인 체스트 프레스 머신'), ex('펙덱 플라이', 3, 10, 15), ex('케이블 사이드 레터럴 레이즈', 3, 12, 15), ex('오버헤드 케이블 익스텐션', 3, 10, 15)] },
+  E: { name: '당기기 2', focus: '등 두께 · 이두', ex: [ex('어시스트 풀업 머신', 3, 6, 10), ex('원암 덤벨 로우'), ex('케이블 페이스 풀', 3, 12, 15), ex('해머 컬', 3, 10, 15), ex('케이블 컬', 3, 10, 15)] },
+  F: { name: '하체 2', focus: '둔근 · 햄스트링 · 복근', ex: [ex('힙 쓰러스트 머신'), ex('덤벨 루마니안 데드리프트'), ex('레그 컬', 3, 10, 15), ex('힙 어브덕션 머신', 3, 12, 15), ex('행잉 레그 레이즈', 3, 10, 15)] },
 };
 
 // ---- 순수 로직 (#test 로 자체 점검) ----
-const hasSets = s => Object.keys(s.sets || {}).length > 0;
+const hasSets = s => Object.keys(s?.sets || {}).length > 0;
+const e1rm = (kg, reps) => Math.round(kg * (1 + reps / 30) * 10) / 10; // Epley 추정 1RM
+const best = sets => (sets ? Math.max(...sets.map(([kg, r]) => (kg ? e1rm(kg, r) : r))) : 0); // 맨몸 종목은 횟수
+const goalWeight = (w, bf) => Math.round(w * (1 - bf / 100) / (1 - TARGET_BF / 100) * 10) / 10; // 제지방 유지 가정
+const clock = sec => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
 
 function prevSets(log, date, name) {
   const d = Object.keys(log).filter(k => k < date && log[k].sets?.[name]?.length).sort().pop();
@@ -80,12 +171,51 @@ function parseRoutine(text) {
   });
 }
 
-const valid = d => !!d && typeof d.log === 'object' && !!d.log && ORDER.every(k => Array.isArray(d.routine?.[k]?.ex));
+const iso = d => d.toISOString().slice(0, 10);
+function monday(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() - (d.getUTCDay() + 6) % 7);
+  return iso(d);
+}
+
+// 최근 n주의 주별 운동일수 (오래된 주부터)
+function weekly(log, todayStr, n = 8) {
+  const cur = new Date(monday(todayStr) + 'T00:00:00Z');
+  return Array.from({ length: n }, (_, i) => {
+    const d = new Date(cur);
+    d.setUTCDate(d.getUTCDate() - 7 * (n - 1 - i));
+    const start = iso(d);
+    return { start, count: Object.keys(log).filter(k => hasSets(log[k]) && monday(k) === start).length };
+  });
+}
+
+const series = (log, pick) => Object.keys(log).sort().map(d => [d, pick(log[d])]).filter(([, v]) => v > 0);
+
+function plot(vals, w, h, pad, extra = []) {
+  const all = vals.concat(extra);
+  let lo = Math.min(...all), hi = Math.max(...all);
+  if (lo === hi) { lo -= 1; hi += 1; }
+  const y = v => pad + (h - 2 * pad) * (1 - (v - lo) / (hi - lo));
+  return { y, pts: vals.map((v, i) => [vals.length > 1 ? pad + (w - 2 * pad) * i / (vals.length - 1) : w / 2, y(v)]) };
+}
+
+const valid = d => !!d && typeof d.log === 'object' && !!d.log && typeof d.routine === 'object' && !!d.routine;
+
+// 3일 루틴(A·B·C)으로 저장된 예전 데이터: 종목과 기록은 그대로 두고 새 요일만 채운다
+function migrate(d) {
+  const old = !d.routine.D;
+  for (const k of ORDER) {
+    const def = DEFAULT_ROUTINE[k];
+    if (!Array.isArray(d.routine[k]?.ex)) d.routine[k] = structuredClone(def);
+    else if (old) Object.assign(d.routine[k], { name: def.name, focus: def.focus });
+  }
+  return d;
+}
 
 // ---- 저장 ----
 function load() {
   const raw = localStorage.getItem(KEY);
-  try { const d = JSON.parse(raw); if (valid(d)) return d; } catch {}
+  try { const d = JSON.parse(raw); if (valid(d)) return migrate(d); } catch {}
   if (raw) localStorage.setItem(KEY + '_bad', raw); // 못 읽는 데이터는 덮어쓰지 않고 남겨 둔다
   return { routine: structuredClone(DEFAULT_ROUTINE), log: {} };
 }
@@ -99,16 +229,39 @@ function save() {
 const $ = s => document.querySelector(s), app = $('#app');
 const esc = s => String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 const fmt = sets => sets.map(([kg, r]) => `${kg}×${r}`).join(' · ');
-function today() { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); }
+const CHECK = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+function today() { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return iso(d); }
 
-let db = load(), view, date = today(), day = null;
+let db = load(), view, date = today(), day = null, exSel;
 
 function show(v) {
   view = v;
   document.querySelectorAll('nav button').forEach(b => b.setAttribute('aria-current', b.dataset.view === v ? 'page' : 'false'));
-  ({ today: renderToday, history: renderHistory, settings: renderSettings })[v]();
+  ({ today: renderToday, progress: renderProgress, history: renderHistory, settings: renderSettings })[v]();
   scrollTo(0, 0);
 }
+
+function ring(done, total) {
+  const r = 26, c = 2 * Math.PI * r, f = total ? Math.min(done / total, 1) : 0;
+  return `<svg class="ring" viewBox="0 0 64 64" role="img" aria-label="오늘 ${done}/${total}세트 완료">
+    <circle cx="32" cy="32" r="${r}" class="track"/>
+    <circle cx="32" cy="32" r="${r}" class="prog" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - f)}" transform="rotate(-90 32 32)"/>
+    <text x="32" y="36.5" text-anchor="middle">${done}/${total}</text></svg>`;
+}
+
+function chart(points, { goal, label }) {
+  const W = 320, H = 130, P = 14;
+  const { y, pts } = plot(points.map(p => p[1]), W, H, P, goal ? [goal] : []);
+  const d = pts.map(([x, v], i) => (i ? 'L' : 'M') + x.toFixed(1) + ' ' + v.toFixed(1)).join(' ');
+  const [lx, ly] = pts.at(-1);
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}">
+    ${goal ? `<line class="goal" x1="${P}" x2="${W - P}" y1="${y(goal)}" y2="${y(goal)}"/>` : ''}
+    ${pts.length > 1 ? `<path class="glow" d="${d}"/><path class="line" d="${d}"/>` : ''}
+    <circle class="halo" cx="${lx}" cy="${ly}" r="8"/><circle class="dot" cx="${lx}" cy="${ly}" r="3.4"/></svg>
+    <div class="axis"><span>${esc(points[0][0].slice(5))}</span><span>${esc(points.at(-1)[0].slice(5))}</span></div>`;
+}
+
+const numField = (id, unit, value, attrs = '') => `<span class="field"><input type="number" id="${id}" inputmode="decimal" step="any" min="0" value="${esc(value ?? '')}" ${attrs}><span>${unit}</span></span>`;
 
 function renderToday() {
   const s = db.log[date];
@@ -116,68 +269,154 @@ function renderToday() {
   if (!db.routine[day]) day = 'A';
   const r = db.routine[day];
   app.innerHTML = `
-    <div class="row"><input type="date" id="date" value="${date}" max="${today()}" aria-label="날짜">
-      <label>체중 <input type="number" id="bw" inputmode="decimal" step="any" min="0" value="${esc(s?.weight ?? '')}"> kg</label></div>
-    <div class="row">${ORDER.map(k => `<button data-day="${k}" aria-pressed="${k === day}">${k}</button>`).join('')}<b>${esc(r.name)}</b></div>
+    <header class="card hero">
+      <div><input type="date" id="date" value="${date}" max="${today()}" aria-label="날짜">
+        <h1>${esc(r.name)}</h1><p class="muted">${esc(r.focus || '')}</p></div>
+      <div id="ring"></div>
+    </header>
+    <div class="days" role="group" aria-label="루틴 선택">${ORDER.map(k => `<button class="pill" data-day="${k}" aria-pressed="${k === day}">${esc(db.routine[k].name)}</button>`).join('')}</div>
     ${r.ex.map(e => card(e, s)).join('')}
-    <label class="card row"><input type="checkbox" id="cardio" ${s?.cardio ? 'checked' : ''}> ${CARDIO}</label>`;
+    <label class="card check"><input type="checkbox" id="cardio" ${s?.cardio ? 'checked' : ''}><span>${CARDIO}</span></label>
+    <div class="grid2">
+      <label class="card stat"><span class="cap">체중</span>${numField('bw', 'kg', s?.weight)}</label>
+      <label class="card stat"><span class="cap">체지방</span>${numField('bf', '%', s?.bf, 'max="70"')}</label>
+    </div>`;
+  refreshRing();
 }
 
 function card(e, s) {
   const prev = prevSets(db.log, date, e.n), tip = suggest(prev, e), cur = s?.sets?.[e.n] || [], n = esc(e.n);
   const rows = Array.from({ length: e.sets }, (_, i) => {
     const [kg, reps] = cur[i] || ['', ''], [pk, pr] = tip?.sets[i] || ['', ''];
-    return `<div class="set"><span>${i + 1}</span>
-      <input type="number" inputmode="decimal" step="any" min="0" value="${esc(kg)}" placeholder="${esc(pk)}" aria-label="${n} ${i + 1}세트 무게"> kg
-      <input type="number" inputmode="numeric" min="0" value="${esc(reps)}" placeholder="${esc(pr)}" aria-label="${n} ${i + 1}세트 횟수"> 회
-      ${tip ? `<button class="ok" aria-label="${n} ${i + 1}세트 목표대로 기록">✓</button>` : ''}</div>`;
+    return `<div class="set${reps ? ' done' : ''}"><span class="idx">${i + 1}</span>
+      <label class="field"><input type="number" inputmode="decimal" step="any" min="0" value="${esc(kg)}" placeholder="${esc(pk)}" aria-label="${n} ${i + 1}세트 무게"><span>kg</span></label>
+      <label class="field"><input class="reps" type="number" inputmode="numeric" min="0" value="${esc(reps)}" placeholder="${esc(pr)}" aria-label="${n} ${i + 1}세트 횟수"><span>회</span></label>
+      <button class="ok" aria-label="${n} ${i + 1}세트 완료">${CHECK}</button></div>`;
   }).join('');
   return `<section class="card" data-ex="${n}">
-    <h3>${n} <small>${esc(e.sets)}세트 × ${esc(e.lo)}~${esc(e.hi)}회</small></h3>
-    <div class="muted">${prev ? `지난번 ${esc(fmt(prev))}${tip.up ? ' <b class="up">→ 증량</b>' : ''}` : `처음: ${esc(e.lo)}~${esc(e.hi)}회 할 수 있는 무게를 찾아 적으세요`}</div>
+    <div class="between"><h3>${n}</h3><span class="tag">${esc(e.sets)} × ${esc(e.lo)}–${esc(e.hi)}</span></div>
+    <p class="muted">${prev ? `지난번 ${esc(fmt(prev))}${tip.up ? ' <b class="up">증량</b>' : ''}` : `처음 · ${esc(e.lo)}~${esc(e.hi)}회 할 수 있는 무게를 찾아 적으세요`}</p>
     ${rows}</section>`;
 }
+
+function refreshRing() { $('#ring').innerHTML = ring(app.querySelectorAll('.set.done').length, app.querySelectorAll('.set').length); }
 
 // 횟수가 적힌 세트만 기록한다. 아무것도 없으면 그날 기록 자체를 지운다.
 function collect() {
   const s = db.log[date] ||= {};
   s.sets ||= {};
   s.day = day;
-  const w = parseFloat($('#bw').value);
+  const w = parseFloat($('#bw').value), bf = parseFloat($('#bf').value);
   if (w > 0) s.weight = w; else delete s.weight;
+  if (bf > 0 && bf < 70) s.bf = bf; else delete s.bf;
   if ($('#cardio').checked) s.cardio = true; else delete s.cardio;
   for (const c of app.querySelectorAll('[data-ex]')) {
-    const sets = [...c.querySelectorAll('.set')].map(r => {
-      const [kg, reps] = [...r.querySelectorAll('input')].map(i => Math.max(0, parseFloat(i.value) || 0));
-      return [kg, Math.round(reps)];
-    }).filter(([, r]) => r > 0);
+    const sets = [];
+    for (const r of c.querySelectorAll('.set')) {
+      const [kg, raw] = [...r.querySelectorAll('input')].map(i => Math.max(0, parseFloat(i.value) || 0)), reps = Math.round(raw);
+      r.classList.toggle('done', reps > 0);
+      if (reps > 0) sets.push([kg, reps]);
+    }
     if (sets.length) s.sets[c.dataset.ex] = sets; else delete s.sets[c.dataset.ex];
   }
-  if (!s.weight && !s.cardio && !hasSets(s)) delete db.log[date];
+  if (!s.weight && !s.bf && !s.cardio && !hasSets(s)) delete db.log[date];
   save();
+  refreshRing();
+}
+
+function renderProgress() {
+  const w = series(db.log, s => s.weight), bf = series(db.log, s => s.bf), wk = weekly(db.log, today());
+  const cur = w.at(-1)?.[1], start = w[0]?.[1], diff = w.length > 1 ? cur - start : 0;
+  const goal = db.goal || (w.length && bf.length ? goalWeight(start, bf[0][1]) : 0);
+  const left = goal && cur > goal ? cur - goal : 0;
+  const pct = goal && start > goal ? Math.max(0, Math.min(1, (start - cur) / (start - goal))) : 0;
+  const names = [...new Set(Object.values(db.log).flatMap(s => Object.keys(s.sets || {})))];
+  if (!names.includes(exSel)) exSel = names[0];
+  const exPts = exSel ? series(db.log, s => best(s.sets?.[exSel])) : [];
+  const weighted = Object.values(db.log).some(s => s.sets?.[exSel]?.some(([kg]) => kg > 0));
+  const days = Object.values(db.log).filter(hasSets).length, top = Math.max(WEEK_GOAL, ...wk.map(x => x.count));
+
+  app.innerHTML = `<h1>진행</h1>
+    <section class="card">
+      <div class="between"><span class="cap">체중</span>${goal ? `<span class="tag">목표 ${esc(goal)}kg</span>` : ''}</div>
+      ${w.length ? `<div class="num">${esc(cur)}<small>kg</small>${diff ? `<span class="delta">${diff > 0 ? '+' : ''}${diff.toFixed(1)}</span>` : ''}</div>
+        ${bf.length ? `<p class="muted">체지방 ${esc(bf.at(-1)[1])}%</p>` : ''}
+        ${chart(w, { goal, label: `체중 ${start}kg에서 ${cur}kg${goal ? `, 목표 ${goal}kg` : ''}` })}
+        ${goal && start > goal ? `<div class="meter" role="progressbar" aria-label="목표 체중 진행률" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct * 100)}"><i style="width:${pct * 100}%"></i></div><p class="muted">목표까지 ${Math.round(pct * 100)}%</p>` : ''}`
+      : '<p class="muted">오늘 탭 아래쪽에서 체중을 입력하면 그래프가 그려집니다.</p>'}
+    </section>
+    <section class="card">
+      <span class="cap">주간 운동</span>
+      <div class="num">${wk.at(-1).count}<small>/ ${WEEK_GOAL}일</small></div>
+      <div class="bars" role="img" aria-label="최근 ${wk.length}주 운동일수: ${wk.map(x => x.count).join(', ')}">${wk.map((x, i) => `<i class="${i === wk.length - 1 ? 'now' : ''}" style="height:${x.count / top * 100}%"></i>`).join('')}</div>
+      <div class="axis"><span>${wk.length - 1}주 전</span><span>이번 주</span></div>
+      <p class="muted">누적 ${days}일</p>
+    </section>
+    <section class="card">
+      <span class="cap">종목 기록</span>
+      ${names.length ? `<select id="exsel" aria-label="종목 선택">${names.map(n => `<option${n === exSel ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>
+        <div class="num">${esc(exPts.at(-1)[1])}<small>${weighted ? 'kg · 추정 1RM' : '회 · 최고 횟수'}</small></div>
+        ${chart(exPts, { label: `${exSel} 기록 ${exPts.length}회` })}
+        <p class="muted">최고 ${esc(Math.max(...exPts.map(p => p[1])))}${weighted ? 'kg' : '회'}</p>`
+      : '<p class="muted">운동을 기록하면 종목별 성장 그래프가 그려집니다.</p>'}
+    </section>
+    ${cur ? `<section class="card"><span class="cap">가이드</span><ul class="plain">
+      ${left ? `<li>목표까지 ${left.toFixed(1)}kg. 주 0.5kg 속도면 약 ${Math.ceil(left / 0.5)}주입니다.</li>` : goal ? '<li>목표 체중에 도달했습니다.</li>' : '<li>체지방률을 한 번 입력하면 목표 체중을 계산합니다.</li>'}
+      <li>단백질은 하루 약 ${Math.round(cur * 1.6 / 10) * 10}g을 목표로 하세요.</li>
+      <li>체중은 아침 공복에 재야 날마다 비교하기 좋습니다.</li></ul></section>` : ''}`;
 }
 
 function renderHistory() {
-  const dates = Object.keys(db.log).sort().reverse(), w = dates.map(d => db.log[d].weight).filter(Boolean);
-  const diff = w.length > 1 ? w[0] - w.at(-1) : 0;
-  app.innerHTML = `<h2>기록 ${dates.length}일</h2>` +
-    (w.length > 1 ? `<p>체중 ${esc(w.at(-1))} → ${esc(w[0])} kg (${diff > 0 ? '+' : ''}${diff.toFixed(1)})</p>` : '') +
+  const dates = Object.keys(db.log).sort().reverse();
+  app.innerHTML = `<h1>기록</h1><p class="muted">${dates.length}일</p>` +
     (dates.map(d => {
       const s = db.log[d];
-      const tags = [hasSets(s) && db.routine[s.day]?.name, s.weight && s.weight + 'kg', s.cardio && '유산소'].filter(Boolean).join(' · ');
-      return `<section class="card"><h3>${esc(d)} <small>${esc(tags)}</small></h3>${Object.entries(s.sets || {}).map(([n, sets]) => `<div>${esc(n)} <span class="muted">${esc(fmt(sets))}</span></div>`).join('')}</section>`;
-    }).join('') || '<p class="muted">아직 기록이 없습니다.</p>');
+      const tags = [hasSets(s) && db.routine[s.day]?.name, s.weight && s.weight + 'kg', s.bf && s.bf + '%', s.cardio && '유산소'].filter(Boolean).join(' · ');
+      return `<section class="card"><div class="between"><h3>${esc(d)}</h3><span class="muted" style="margin:0">${esc(tags)}</span></div>${Object.entries(s.sets || {}).map(([n, sets]) => `<p class="muted"><b>${esc(n)}</b> ${esc(fmt(sets))}</p>`).join('')}</section>`;
+    }).join('') || '<section class="card"><p class="muted">아직 기록이 없습니다.</p></section>');
 }
 
 function renderSettings() {
+  const rest = db.rest || 90;
   // shortcut: 기록이 종목 이름으로 연결되어 이름을 바꾸면 지난 기록과 끊긴다. 이름 변경이 잦아지면 종목 id를 도입한다.
-  app.innerHTML = `<h2>루틴 편집</h2>
-    <p class="muted">한 줄에 한 종목: 이름, 세트, 최소 횟수, 최대 횟수. 이름을 바꾸면 그 종목의 지난 기록과 연결이 끊깁니다.</p>` +
-    ORDER.map(k => `<label><b>${k} · ${esc(db.routine[k].name)}</b><textarea id="r${k}">${esc(db.routine[k].ex.map(e => [e.n, e.sets, e.lo, e.hi].join(', ')).join('\n'))}</textarea></label>`).join('') +
-    `<div class="row"><button class="primary" id="saveRoutine">루틴 저장</button></div>
-    <h2>백업</h2>
-    <p class="muted">기록은 이 기기의 브라우저에만 저장됩니다. 가끔 내보내 두세요.</p>
-    <div class="row"><button id="export">내보내기</button><label>가져오기 <input type="file" id="import" accept="application/json,.json"></label></div>`;
+  app.innerHTML = `<h1>설정</h1>
+    <section class="card"><h3>목표</h3>
+      <div class="grid2" style="margin-top:12px">
+        <label class="stat"><span class="cap">목표 체중</span>${numField('goal', 'kg', db.goal, 'placeholder="자동"')}</label>
+        <label class="stat"><span class="cap">세트 간 휴식</span><select id="restSec">${[60, 90, 120, 150].map(v => `<option value="${v}"${v === rest ? ' selected' : ''}>${v}초</option>`).join('')}</select></label>
+      </div>
+      <p class="muted">목표 체중을 비워 두면 처음 입력한 체중과 체지방률로 체지방 ${TARGET_BF}% 기준 체중을 계산합니다.</p>
+    </section>
+    <section class="card"><h3>루틴 편집</h3>
+      <p class="muted">한 줄에 한 종목: 이름, 세트, 최소 횟수, 최대 횟수. 이름을 바꾸면 그 종목의 지난 기록과 연결이 끊깁니다.</p>
+      <div style="margin-top:12px">${ORDER.map(k => `<details><summary>${esc(db.routine[k].name)}</summary><textarea id="r${k}" aria-label="${esc(db.routine[k].name)} 종목">${esc(db.routine[k].ex.map(e => [e.n, e.sets, e.lo, e.hi].join(', ')).join('\n'))}</textarea></details>`).join('')}</div>
+      <button class="primary" id="saveRoutine">루틴 저장</button>
+    </section>
+    <section class="card"><h3>백업</h3>
+      <p class="muted">기록은 이 기기의 브라우저에만 저장됩니다. 가끔 내보내 두세요.</p>
+      <div class="between" style="margin-top:12px;flex-wrap:wrap"><button class="pill" id="export">내보내기</button><label class="muted">가져오기 <input type="file" id="import" accept="application/json,.json"></label></div>
+    </section>`;
+}
+
+// ---- 휴식 타이머 ----
+let restEnd = 0, restTotal = 0, restTick, audio;
+function startRest(sec = db.rest || 90) {
+  try { audio ||= new AudioContext(); audio.resume(); } catch {} // 소리는 터치 직후에만 허용되므로 여기서 깨운다
+  restTotal = sec; restEnd = Date.now() + sec * 1000;
+  clearInterval(restTick); restTick = setInterval(tickRest, 250);
+  tickRest();
+}
+function tickRest() {
+  const left = Math.ceil((restEnd - Date.now()) / 1000), bar = $('#rest');
+  if (left <= 0) {
+    clearInterval(restTick); bar.hidden = true;
+    if (restEnd) { restEnd = 0; navigator.vibrate?.([200, 100, 200]); beep(); }
+    return;
+  }
+  bar.hidden = false; $('#restTime').textContent = clock(left); bar.style.setProperty('--p', left / restTotal);
+}
+function beep() {
+  try { const o = audio.createOscillator(), g = audio.createGain(); o.frequency.value = 880; g.gain.value = .15; o.connect(g).connect(audio.destination); o.start(); o.stop(audio.currentTime + .35); } catch {}
 }
 
 function exportData() {
@@ -192,23 +431,39 @@ async function importData(file) {
     const d = JSON.parse(await file.text());
     if (!valid(d)) throw new Error('이 앱의 백업 파일이 아닙니다.');
     if (!confirm(`${Object.keys(d.log).length}일치 기록을 불러옵니다. 현재 기록은 덮어씁니다.`)) return;
-    db = d; save(); day = null; show('history');
+    db = migrate(d); save(); day = null; show('history');
   } catch (e) { alert('가져오기 실패: ' + e.message); }
 }
 
-app.addEventListener('input', e => { if (view === 'today' && e.target.id !== 'date') collect(); });
-app.addEventListener('change', e => {
-  if (e.target.id === 'date') { date = e.target.value || today(); day = null; renderToday(); }
-  else if (e.target.id === 'import' && e.target.files[0]) importData(e.target.files[0]);
-});
-app.addEventListener('click', e => {
+app.addEventListener('input', e => {
   const t = e.target;
-  if (t.dataset.day) { day = t.dataset.day; if (db.log[date]) { db.log[date].day = day; save(); } renderToday(); }
-  else if (t.classList.contains('ok')) { t.parentNode.querySelectorAll('input').forEach(i => i.value ||= i.placeholder); collect(); }
-  else if (t.id === 'saveRoutine') { for (const k of ORDER) db.routine[k].ex = parseRoutine($('#r' + k).value); save(); renderSettings(); $('#saveRoutine').textContent = '저장됨 ✓'; }
-  else if (t.id === 'export') exportData();
+  if (view === 'today' && t.id !== 'date') collect();
+  else if (t.id === 'goal') { const g = parseFloat(t.value); if (g > 0) db.goal = g; else delete db.goal; save(); }
 });
-$('nav').addEventListener('click', e => e.target.dataset.view && show(e.target.dataset.view));
+app.addEventListener('change', e => {
+  const t = e.target;
+  if (t.id === 'date') { date = t.value || today(); day = null; renderToday(); }
+  else if (t.id === 'import' && t.files[0]) importData(t.files[0]);
+  else if (t.id === 'restSec') { db.rest = +t.value; save(); }
+  else if (t.id === 'exsel') { exSel = t.value; renderProgress(); }
+  else if (t.classList.contains('reps') && t.value > 0 && date === today()) startRest();
+});
+document.addEventListener('click', e => {
+  const t = e.target.closest('button');
+  if (!t) return;
+  if (t.dataset.view) show(t.dataset.view);
+  else if (t.dataset.day) { day = t.dataset.day; if (db.log[date]) { db.log[date].day = day; save(); } renderToday(); }
+  else if (t.classList.contains('ok')) {
+    const row = t.closest('.set');
+    row.querySelectorAll('input').forEach(i => i.value ||= i.placeholder);
+    collect();
+    if (row.classList.contains('done') && date === today()) startRest();
+  }
+  else if (t.id === 'saveRoutine') { for (const k of ORDER) db.routine[k].ex = parseRoutine($('#r' + k).value); save(); renderSettings(); $('#saveRoutine').textContent = '저장됨'; }
+  else if (t.id === 'export') exportData();
+  else if (t.id === 'restAdd') { restEnd += 30000; restTotal += 30; tickRest(); }
+  else if (t.id === 'restSkip') { restEnd = 0; tickRest(); }
+});
 
 function selfTest() {
   const e = ex('x', 3, 8, 12), j = JSON.stringify, fails = [];
@@ -217,13 +472,22 @@ function selfTest() {
   eq('add rep, capped', suggest([[40, 12], [40, 10], [40, 12]], e), { up: false, sets: [[40, 12], [40, 11], [40, 12]] });
   eq('add weight', suggest([[40, 12], [40, 12], [40, 13]], e), { up: true, sets: [[42.5, 8], [42.5, 8], [42.5, 8]] });
   eq('short session never ups', suggest([[40, 12]], e).up, false);
-  const log = { '2026-01-01': { day: 'A', sets: { x: [[1, 1]] } }, '2026-01-02': { day: 'C', sets: { x: [[2, 2]] } }, '2026-01-03': { day: 'A', weight: 80, sets: {} } };
-  eq('rotation wraps, skips weigh-in', nextDay(log, '2026-01-04'), 'A');
-  eq('rotation mid', nextDay(log, '2026-01-02'), 'B');
+  const log = { '2026-11-16': { day: 'F', sets: { x: [[1, 1]] } }, '2026-11-23': { day: 'A', sets: { x: [[1, 1]] } }, '2026-11-24': { day: 'C', sets: { x: [[2, 2]] } }, '2026-11-25': { day: 'A', weight: 80, sets: {} } };
+  eq('rotation continues, skips weigh-in', nextDay(log, '2026-11-26'), 'D');
+  eq('rotation wraps', nextDay(log, '2026-11-17'), 'A');
   eq('first day', nextDay({}, '2026-01-01'), 'A');
-  eq('prev excludes same day', prevSets(log, '2026-01-02', 'x'), [[1, 1]]);
+  eq('prev excludes same day', prevSets(log, '2026-11-24', 'x'), [[1, 1]]);
   eq('routine parse', parseRoutine('스쿼트, 4, 5, 3\n\n컬'), [ex('스쿼트', 4, 5, 5), ex('컬')]);
-  eq('valid', [valid({ log: {}, routine: DEFAULT_ROUTINE }), valid({ log: {} }), valid(null)], [true, false, false]);
+  eq('valid', [valid({ log: {}, routine: {} }), valid({ log: {} }), valid(null)], [true, false, false]);
+  eq('e1rm', [e1rm(100, 10), best([[40, 12], [50, 6]]), best([[0, 15], [0, 12]]), best(undefined)], [133.3, 60, 15, 0]);
+  eq('goal weight', goalWeight(89, 26), 75.7);
+  eq('clock', [clock(90), clock(5)], ['1:30', '0:05']);
+  eq('monday', [monday('2026-11-23'), monday('2026-11-29'), monday('2026-11-30')], ['2026-11-23', '2026-11-23', '2026-11-30']);
+  eq('weekly', weekly(log, '2026-11-25', 2), [{ start: '2026-11-16', count: 1 }, { start: '2026-11-23', count: 2 }]);
+  eq('series', series(log, s => s.weight), [['2026-11-25', 80]]);
+  eq('plot', [plot([1, 3], 100, 50, 10).pts, plot([5], 100, 50, 10).pts], [[[10, 40], [90, 10]], [[50, 25]]]);
+  const old = migrate({ log: {}, routine: { A: { name: '옛 이름', ex: [ex('a')] }, B: { name: 'b', ex: [] }, C: { name: 'c', ex: [] } } });
+  eq('migrate keeps exercises, adds days', [old.routine.A.ex[0].n, old.routine.A.name, old.routine.F.ex.length, migrate(old).routine.A.ex.length], ['a', '밀기 1', 5, 1]);
   app.textContent = fails.length ? 'FAIL\n' + fails.join('\n') : 'self-test OK';
 }
 
