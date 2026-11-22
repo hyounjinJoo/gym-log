@@ -75,6 +75,23 @@ dialog::backdrop { background: rgba(0, 0, 0, .6); }
 dialog h2 { font-size: 20px; margin: 0; letter-spacing: -.02em; }
 dialog h3 { margin-top: 16px; }
 dialog a { color: var(--accent); }
+/* 동작 그림: 흰 바탕 위의 관절 인형. 쓰는 근육은 빨강, 돕는 근육은 연한 빨강 */
+.figbox { margin-top: 12px; background: #fff; border-radius: 12px; overflow: hidden; }
+.fig { display: block; width: 100%; }
+.fig line { stroke-linecap: round; fill: none; }
+.fig .ol { stroke: #6b6b76; fill: #6b6b76; }
+.fig .skin { stroke: #f1f1f4; fill: #f1f1f4; }
+.fig .far { stroke: #d5d5dc; }
+.fig .olp { fill: #6b6b76; stroke: #6b6b76; stroke-width: 10.4; stroke-linejoin: round; }
+.fig .skinp { fill: #f1f1f4; stroke: #f1f1f4; stroke-width: 8; stroke-linejoin: round; }
+.fig .mu.on, .sw { stroke: #e5383b; fill: #e5383b; background: #e5383b; }
+.fig .mu.half, .sw.half { stroke: #f4a9ab; fill: #f4a9ab; background: #f4a9ab; }
+.fig .pad { stroke: #3d3d48; fill: #3d3d48; }
+.fig .bar { stroke: #a3a3ae; fill: #a3a3ae; }
+.fig .cab { stroke: #55555f; }
+.fig .floor { stroke: #dedee4; }
+.sw { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 3px; }
+dialog a.primary { display: inline-flex; align-items: center; margin-top: 12px; color: var(--ink); text-decoration: none; }
 svg.icon { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .ring { width: 78px; height: 78px; display: block; }
 .ring circle { fill: none; stroke-width: 6.5; }
@@ -134,6 +151,7 @@ nav svg { width: 22px; height: 22px; }
   <button data-view="history" aria-label="기록"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg><span>기록</span></button>
   <button data-view="settings" aria-label="설정"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg><span>설정</span></button>
 </nav>
+<script src="figure.js"></script>
 <script>
 const KEY = 'gymlog', ORDER = ['A', 'B', 'C', 'D', 'E', 'F'], STEP = 2.5, TARGET_BF = 13, WEEK_GOAL = 6;
 const CARDIO = '마무리 유산소 15분 · 실내 자전거 또는 경사 걷기';
@@ -294,6 +312,35 @@ const GUIDES = {
     ['한쪽 팔과 반대쪽 다리를 허리가 뜨기 직전까지 천천히 뻗습니다.', '돌아와 반대쪽을 합니다. 좌우를 합쳐 횟수를 셉니다.'],
     ['허리가 바닥에서 뜨면 뻗는 범위를 줄입니다.', '숨을 참지 않습니다.', '무게 칸은 비워 둡니다.'],
     [['NASM · Dead Bug', N + 'dead-bug']]],
+};
+
+// 종목마다 [주로 쓰는 근육, 돕는 근육]. 안내 창의 동작 그림(figure.js)에서 빨갛게 칠한다.
+const MUSCLE_NAMES = { chestU: '윗가슴', chest: '가슴', delF: '어깨 앞', delS: '어깨 옆', delR: '어깨 뒤', bi: '이두', tri: '삼두', fore: '전완', abs: '복근', obl: '옆구리', lat: '광배', mid: '등 가운데', trap: '승모', low: '허리', glu: '둔근', hipS: '엉덩이 옆', quad: '허벅지 앞', ham: '허벅지 뒤', calf: '종아리' };
+const MUSCLES = {
+  '체스트 프레스 머신': ['chest chestU', 'delF tri'],
+  '인클라인 체스트 프레스 머신': ['chestU', 'chest delF tri'],
+  '펙덱 플라이': ['chest chestU', 'delF'],
+  '케이블 플라이': ['chest chestU', 'delF'],
+  '덤벨 사이드 레터럴 레이즈': ['delS', 'trap delF'],
+  '케이블 사이드 레터럴 레이즈': ['delS', 'trap'],
+  '리버스 펙덱 플라이': ['delR', 'mid trap'],
+  '케이블 페이스 풀': ['delR mid', 'trap'],
+  '오버헤드 케이블 익스텐션': ['tri', ''],
+  '케이블 푸시다운': ['tri', ''],
+  '뉴트럴 그립 랫 풀다운': ['lat', 'bi mid delR'],
+  '풀오버 머신': ['lat', 'tri'],
+  '체스트 서포티드 로우 머신': ['mid lat', 'bi delR trap'],
+  '해머 컬': ['bi fore', ''],
+  '프리처 컬 머신': ['bi', 'fore'],
+  '레그 프레스': ['quad glu', 'ham'],
+  '싱글 레그 프레스': ['quad glu', 'ham hipS'],
+  '레그 익스텐션': ['quad', ''],
+  '시티드 레그 컬': ['ham', 'calf'],
+  '레그 프레스 카프 레이즈': ['calf', ''],
+  '힙 쓰러스트 머신': ['glu', 'ham'],
+  '힙 어브덕션 머신': ['hipS', 'glu'],
+  '팔로프 프레스': ['obl abs', ''],
+  '데드버그': ['abs', 'obl'],
 };
 
 // ---- 순수 로직 (#test 로 자체 점검) ----
@@ -669,15 +716,35 @@ function renderSettings() {
     </section>`;
 }
 
+// figure.js를 아직 받지 못한 경우(업데이트 직후 오프라인)에도 안내 창은 열려야 한다
+const hasFig = name => typeof FIG !== 'undefined' && !!FIG[name];
+let figFrame;
+function playFigure(name) {
+  cancelAnimationFrame(figFrame);
+  const box = $('#fig'), [pri, sec] = (MUSCLES[name] || ['', '']).map(x => x.split(' '));
+  if (!box || !hasFig(name)) return;
+  // 움직임을 줄이도록 설정한 기기에서는 시작 자세와 끝 자세를 나란히 보여 준다
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { box.innerHTML = figSvg(name, 0, pri, sec) + figSvg(name, 1, pri, sec); return; }
+  const t0 = performance.now();
+  const step = now => { const ph = ((now - t0) / 2600) % 1; box.innerHTML = figSvg(name, (1 - Math.cos(ph * 2 * Math.PI)) / 2, pri, sec); figFrame = requestAnimationFrame(step); };
+  figFrame = requestAnimationFrame(step);
+}
+
 function openGuide(name) {
-  const g = GUIDES[name], list = a => `<ul class="plain">${a.map(x => `<li>${x}</li>`).join('')}</ul>`;
+  const g = GUIDES[name], m = MUSCLES[name], names = k => k.split(' ').filter(Boolean).map(x => MUSCLE_NAMES[x]).join(', ');
+  const list = a => `<ul class="plain">${a.map(x => `<li>${x}</li>`).join('')}</ul>`;
   $('#guide').innerHTML = `<div class="between"><h2>${esc(name)}</h2><button class="pill" data-close>닫기</button></div>` + (g
-    ? `<p class="muted">${g[0]}</p><h3>세팅</h3>${list(g[1])}<h3>동작</h3>${list(g[2])}<h3>주의</h3>${list(g[3])}
+    ? `${hasFig(name) ? '<div id="fig" class="figbox" role="img" aria-label="' + esc(name) + ' 동작 그림"></div>' : ''}
+      ${m ? `<p class="muted"><i class="sw"></i>주로 쓰는 근육: ${names(m[0])}${m[1] ? `<br><i class="sw half"></i>돕는 근육: ${names(m[1])}` : ''}</p>` : `<p class="muted">${g[0]}</p>`}
+      <a class="primary" href="${g[4][0][1]}" target="_blank" rel="noopener">${g[4][0][1].includes('exrx.net') ? '실제 동작 영상 보기' : '동작 설명 보기'}</a>
+      <h3>세팅</h3>${list(g[1])}<h3>동작</h3>${list(g[2])}<h3>주의</h3>${list(g[3])}
       <h3>출처</h3>${list(g[4].map(([label, url]) => `<a href="${url}" target="_blank" rel="noopener">${label}</a>`))}
-      <p class="muted">위 내용은 일반적인 운동 지침을 요약한 것입니다. 기구마다 조절 방식이 다르니 처음에는 헬스장 직원에게 세팅을 확인하세요. 통증이 있으면 멈춥니다.</p>`
+      <p class="muted">그림은 동작과 쓰는 근육을 단순하게 나타낸 것입니다. 기구마다 모양과 조절 방식이 다르니 처음에는 헬스장 직원에게 세팅을 확인하세요. 통증이 있으면 멈춥니다.</p>`
     : '<p class="muted">이 종목은 준비된 안내가 없습니다. 설정 탭에서 종목 이름을 기본 루틴의 이름과 같게 쓰면 안내가 연결됩니다.</p>');
   $('#guide').showModal();
+  playFigure(name);
 }
+$('#guide').addEventListener('close', () => cancelAnimationFrame(figFrame));
 $('#guide').addEventListener('click', e => e.target === e.currentTarget && e.currentTarget.close()); // 바깥을 누르면 닫힘
 
 // ---- GitHub 자동 백업 ----
@@ -858,6 +925,10 @@ function selfTest() {
   eq('routine parse', parseRoutine('스쿼트, 4, 5, 3\n\n컬\n프레스, 3, 8, 12, 120'), [ex('스쿼트', 4, 5, 5), ex('컬'), ex('프레스', 3, 8, 12, 120)]);
   const names = Object.values(DEFAULT_ROUTINE).flatMap(d => d.ex.map(x => x.n));
   eq('every default exercise has a guide', names.filter(n => !(GUIDES[n]?.length === 5 && GUIDES[n].slice(1, 4).every(a => a.length) && GUIDES[n][4].every(([, u]) => u.startsWith('https://')))), []);
+  eq('every default exercise has known muscles', names.filter(n => !(MUSCLES[n] && MUSCLES[n][0] && MUSCLES[n].join(' ').split(' ').filter(Boolean).every(k => MUSCLE_NAMES[k]))), []);
+  const bad = names.filter(n => { if (!FIG[n]) return true; const [p, q] = MUSCLES[n].map(x => x.split(' ')); return [0, .5, 1].some(t => { const svg = figSvg(n, t, p, q); return !svg.includes('class="mu on"') || /NaN|undefined/.test(svg); }); });
+  eq('every default exercise draws a figure with its main muscle', bad, []);
+  eq('ik reaches the target and clamps when too far', [ik([0, 0], [30, 40], 30, 30, 1)[1].map(Math.round), ik([0, 0], [300, 0], 30, 30, 1)[1].map(Math.round)], [[30, 40], [60, 0]]);
   eq('program is 156 weeks', PHASES.reduce((n, p) => n + p.weeks, 0), 156);
   eq('week of', [weekOf('2026-11-23', '2026-11-23'), weekOf('2026-11-23', '2026-11-29'), weekOf('2026-11-23', '2026-11-30'), weekOf('2026-11-23', '2026-11-01')], [1, 1, 2, 1]);
   eq('phase at', [1, 4, 5, 16, 17, 19, 31, 33, 52, 53, 76, 77, 85, 87, 124, 125, 137, 139, 156, 300].map(phaseAt), [0, 0, 1, 1, 2, 3, 4, 5, 5, 6, 6, 7, 8, 9, 9, 10, 11, 12, 12, 12]);
