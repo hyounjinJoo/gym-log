@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#111827">
+<link rel="manifest" href="manifest.json">
+<title>운동 기록</title>
+<style>
+:root { color-scheme: light dark; --line: #8886; --accent: #2563eb; }
+* { box-sizing: border-box; }
+body { margin: 0 auto; max-width: 560px; padding: 12px 12px 76px; font: 16px/1.5 system-ui, sans-serif; }
+h2 { font-size: 1.15rem; margin: 12px 0 8px; }
+h3 { font-size: 1rem; margin: 0; }
+small, .muted { opacity: .75; font-weight: normal; font-size: .85rem; }
+input, button, textarea { font: inherit; }
+input[type=number] { width: 4.6em; padding: 9px 6px; text-align: center; }
+input[type=date] { padding: 8px 6px; }
+input[type=checkbox] { width: 22px; height: 22px; }
+button { min-height: 44px; padding: 0 14px; border: 1px solid var(--line); border-radius: 8px; background: none; color: inherit; }
+button[aria-pressed=true], button[aria-current=page], button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+.card { border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin: 12px 0; }
+.set { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
+.set span { width: 1.2em; opacity: .75; }
+.up { color: light-dark(#15803d, #4ade80); }
+textarea { width: 100%; min-height: 9.5em; margin-bottom: 8px; }
+nav { position: fixed; inset: auto 0 0 0; display: flex; background: Canvas; border-top: 1px solid var(--line); }
+nav button { flex: 1; border: 0; border-radius: 0; min-height: 56px; }
+</style>
+</head>
+<body>
+<main id="app"></main>
+<nav>
+  <button data-view="today">오늘</button>
+  <button data-view="history">기록</button>
+  <button data-view="settings">설정</button>
+</nav>
+<script>
+const KEY = 'gymlog', ORDER = ['A', 'B', 'C'], STEP = 2.5;
+const CARDIO = '마무리 유산소 15분 (천국의 계단 또는 러닝머신 경사 걷기)';
+const ex = (n, sets = 3, lo = 8, hi = 12) => ({ n, sets, lo, hi });
+// 주 6회: A B C A B C, 하루 휴식. 종목은 설정 탭에서 헬스장 기구에 맞게 바꾼다.
+const DEFAULT_ROUTINE = {
+  A: { name: '밀기 (가슴·어깨·삼두)', ex: [ex('체스트 프레스 머신'), ex('인클라인 덤벨 프레스'), ex('숄더 프레스 머신'), ex('덤벨 사이드 레터럴 레이즈', 3, 12, 15), ex('케이블 푸시다운', 3, 10, 15)] },
+  B: { name: '당기기 (등·이두)', ex: [ex('랫 풀다운'), ex('시티드 로우 머신'), ex('리버스 펙덱 플라이', 3, 12, 15), ex('덤벨 컬', 3, 10, 15), ex('백 익스텐션', 3, 10, 15)] },
+  C: { name: '하체·복근', ex: [ex('레그 프레스'), ex('힙 쓰러스트 머신'), ex('레그 컬', 3, 10, 15), ex('레그 익스텐션', 3, 10, 15), ex('크런치 머신', 3, 12, 15)] },
+};
+
+// ---- 순수 로직 (#test 로 자체 점검) ----
+const hasSets = s => Object.keys(s.sets || {}).length > 0;
+
+function prevSets(log, date, name) {
+  const d = Object.keys(log).filter(k => k < date && log[k].sets?.[name]?.length).sort().pop();
+  return d ? log[d].sets[name] : null;
+}
+
+// 체중만 잰 날은 순서에 넣지 않는다
+function nextDay(log, date) {
+  const d = Object.keys(log).filter(k => k < date && hasSets(log[k])).sort().pop();
+  return d ? ORDER[(ORDER.indexOf(log[d].day) + 1) % ORDER.length] : 'A';
+}
+
+// 이중 점진: 모든 세트가 최대 횟수에 닿으면 증량하고 최소 횟수부터, 아니면 같은 무게로 1회 더
+function suggest(prev, e) {
+  if (!prev) return null;
+  const up = prev.length >= e.sets && prev.every(([, r]) => r >= e.hi);
+  const sets = Array.from({ length: e.sets }, (_, i) => {
+    const [kg, r] = prev[Math.min(i, prev.length - 1)];
+    return up ? [kg + STEP, e.lo] : [kg, Math.min(r + 1, e.hi)];
+  });
+  return { up, sets };
+}
+
+function parseRoutine(text) {
+  const pos = (v, d) => (parseInt(v) > 0 ? parseInt(v) : d);
+  return text.split('\n').map(l => l.split(',').map(x => x.trim())).filter(p => p[0]).map(([n, s, lo, hi]) => {
+    lo = pos(lo, 8);
+    return ex(n, Math.min(pos(s, 3), 10), lo, Math.max(lo, pos(hi, 12)));
+  });
+}
+
+const valid = d => !!d && typeof d.log === 'object' && !!d.log && ORDER.every(k => Array.isArray(d.routine?.[k]?.ex));
+
+// ---- 저장 ----
+function load() {
+  const raw = localStorage.getItem(KEY);
+  try { const d = JSON.parse(raw); if (valid(d)) return d; } catch {}
+  if (raw) localStorage.setItem(KEY + '_bad', raw); // 못 읽는 데이터는 덮어쓰지 않고 남겨 둔다
+  return { routine: structuredClone(DEFAULT_ROUTINE), log: {} };
+}
+
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(db)); }
+  catch (e) { alert('저장 실패: ' + e.message + '\n설정 탭에서 백업을 내보내세요.'); }
+}
+
+// ---- 화면 ----
+const $ = s => document.querySelector(s), app = $('#app');
+const esc = s => String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
+const fmt = sets => sets.map(([kg, r]) => `${kg}×${r}`).join(' · ');
+function today() { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); }
+
+let db = load(), view, date = today(), day = null;
+
+function show(v) {
+  view = v;
+  document.querySelectorAll('nav button').forEach(b => b.setAttribute('aria-current', b.dataset.view === v ? 'page' : 'false'));
+  ({ today: renderToday, history: renderHistory, settings: renderSettings })[v]();
+  scrollTo(0, 0);
+}
+
+function renderToday() {
+  const s = db.log[date];
+  day = s?.day || day || nextDay(db.log, date);
+  if (!db.routine[day]) day = 'A';
+  const r = db.routine[day];
+  app.innerHTML = `
+    <div class="row"><input type="date" id="date" value="${date}" max="${today()}" aria-label="날짜">
+      <label>체중 <input type="number" id="bw" inputmode="decimal" step="any" min="0" value="${esc(s?.weight ?? '')}"> kg</label></div>
+    <div class="row">${ORDER.map(k => `<button data-day="${k}" aria-pressed="${k === day}">${k}</button>`).join('')}<b>${esc(r.name)}</b></div>
+    ${r.ex.map(e => card(e, s)).join('')}
+    <label class="card row"><input type="checkbox" id="cardio" ${s?.cardio ? 'checked' : ''}> ${CARDIO}</label>`;
+}
+
+function card(e, s) {
+  const prev = prevSets(db.log, date, e.n), tip = suggest(prev, e), cur = s?.sets?.[e.n] || [], n = esc(e.n);
+  const rows = Array.from({ length: e.sets }, (_, i) => {
+    const [kg, reps] = cur[i] || ['', ''], [pk, pr] = tip?.sets[i] || ['', ''];
+    return `<div class="set"><span>${i + 1}</span>
+      <input type="number" inputmode="decimal" step="any" min="0" value="${esc(kg)}" placeholder="${esc(pk)}" aria-label="${n} ${i + 1}세트 무게"> kg
+      <input type="number" inputmode="numeric" min="0" value="${esc(reps)}" placeholder="${esc(pr)}" aria-label="${n} ${i + 1}세트 횟수"> 회
+      ${tip ? `<button class="ok" aria-label="${n} ${i + 1}세트 목표대로 기록">✓</button>` : ''}</div>`;
+  }).join('');
+  return `<section class="card" data-ex="${n}">
+    <h3>${n} <small>${esc(e.sets)}세트 × ${esc(e.lo)}~${esc(e.hi)}회</small></h3>
+    <div class="muted">${prev ? `지난번 ${esc(fmt(prev))}${tip.up ? ' <b class="up">→ 증량</b>' : ''}` : `처음: ${esc(e.lo)}~${esc(e.hi)}회 할 수 있는 무게를 찾아 적으세요`}</div>
+    ${rows}</section>`;
+}
+
+// 횟수가 적힌 세트만 기록한다. 아무것도 없으면 그날 기록 자체를 지운다.
+function collect() {
+  const s = db.log[date] ||= {};
+  s.sets ||= {};
+  s.day = day;
+  const w = parseFloat($('#bw').value);
+  if (w > 0) s.weight = w; else delete s.weight;
+  if ($('#cardio').checked) s.cardio = true; else delete s.cardio;
+  for (const c of app.querySelectorAll('[data-ex]')) {
+    const sets = [...c.querySelectorAll('.set')].map(r => {
+      const [kg, reps] = [...r.querySelectorAll('input')].map(i => Math.max(0, parseFloat(i.value) || 0));
+      return [kg, Math.round(reps)];
+    }).filter(([, r]) => r > 0);
+    if (sets.length) s.sets[c.dataset.ex] = sets; else delete s.sets[c.dataset.ex];
+  }
+  if (!s.weight && !s.cardio && !hasSets(s)) delete db.log[date];
+  save();
+}
+
+function renderHistory() {
+  const dates = Object.keys(db.log).sort().reverse(), w = dates.map(d => db.log[d].weight).filter(Boolean);
+  const diff = w.length > 1 ? w[0] - w.at(-1) : 0;
+  app.innerHTML = `<h2>기록 ${dates.length}일</h2>` +
+    (w.length > 1 ? `<p>체중 ${esc(w.at(-1))} → ${esc(w[0])} kg (${diff > 0 ? '+' : ''}${diff.toFixed(1)})</p>` : '') +
+    (dates.map(d => {
+      const s = db.log[d];
+      const tags = [hasSets(s) && db.routine[s.day]?.name, s.weight && s.weight + 'kg', s.cardio && '유산소'].filter(Boolean).join(' · ');
+      return `<section class="card"><h3>${esc(d)} <small>${esc(tags)}</small></h3>${Object.entries(s.sets || {}).map(([n, sets]) => `<div>${esc(n)} <span class="muted">${esc(fmt(sets))}</span></div>`).join('')}</section>`;
+    }).join('') || '<p class="muted">아직 기록이 없습니다.</p>');
+}
+
+function renderSettings() {
+  // shortcut: 기록이 종목 이름으로 연결되어 이름을 바꾸면 지난 기록과 끊긴다. 이름 변경이 잦아지면 종목 id를 도입한다.
+  app.innerHTML = `<h2>루틴 편집</h2>
+    <p class="muted">한 줄에 한 종목: 이름, 세트, 최소 횟수, 최대 횟수. 이름을 바꾸면 그 종목의 지난 기록과 연결이 끊깁니다.</p>` +
+    ORDER.map(k => `<label><b>${k} · ${esc(db.routine[k].name)}</b><textarea id="r${k}">${esc(db.routine[k].ex.map(e => [e.n, e.sets, e.lo, e.hi].join(', ')).join('\n'))}</textarea></label>`).join('') +
+    `<div class="row"><button class="primary" id="saveRoutine">루틴 저장</button></div>
+    <h2>백업</h2>
+    <p class="muted">기록은 이 기기의 브라우저에만 저장됩니다. 가끔 내보내 두세요.</p>
+    <div class="row"><button id="export">내보내기</button><label>가져오기 <input type="file" id="import" accept="application/json,.json"></label></div>`;
+}
+
+function exportData() {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(db, null, 1)], { type: 'application/json' }));
+  a.download = `gymlog-${today()}.json`;
+  a.click();
+}
+
+async function importData(file) {
+  try {
+    const d = JSON.parse(await file.text());
+    if (!valid(d)) throw new Error('이 앱의 백업 파일이 아닙니다.');
+    if (!confirm(`${Object.keys(d.log).length}일치 기록을 불러옵니다. 현재 기록은 덮어씁니다.`)) return;
+    db = d; save(); day = null; show('history');
+  } catch (e) { alert('가져오기 실패: ' + e.message); }
+}
+
+app.addEventListener('input', e => { if (view === 'today' && e.target.id !== 'date') collect(); });
+app.addEventListener('change', e => {
+  if (e.target.id === 'date') { date = e.target.value || today(); day = null; renderToday(); }
+  else if (e.target.id === 'import' && e.target.files[0]) importData(e.target.files[0]);
+});
+app.addEventListener('click', e => {
+  const t = e.target;
+  if (t.dataset.day) { day = t.dataset.day; if (db.log[date]) { db.log[date].day = day; save(); } renderToday(); }
+  else if (t.classList.contains('ok')) { t.parentNode.querySelectorAll('input').forEach(i => i.value ||= i.placeholder); collect(); }
+  else if (t.id === 'saveRoutine') { for (const k of ORDER) db.routine[k].ex = parseRoutine($('#r' + k).value); save(); renderSettings(); $('#saveRoutine').textContent = '저장됨 ✓'; }
+  else if (t.id === 'export') exportData();
+});
+$('nav').addEventListener('click', e => e.target.dataset.view && show(e.target.dataset.view));
+
+function selfTest() {
+  const e = ex('x', 3, 8, 12), j = JSON.stringify, fails = [];
+  const eq = (name, a, b) => j(a) === j(b) || fails.push(`${name}: ${j(a)} != ${j(b)}`);
+  eq('no prev', suggest(null, e), null);
+  eq('add rep, capped', suggest([[40, 12], [40, 10], [40, 12]], e), { up: false, sets: [[40, 12], [40, 11], [40, 12]] });
+  eq('add weight', suggest([[40, 12], [40, 12], [40, 13]], e), { up: true, sets: [[42.5, 8], [42.5, 8], [42.5, 8]] });
+  eq('short session never ups', suggest([[40, 12]], e).up, false);
+  const log = { '2026-01-01': { day: 'A', sets: { x: [[1, 1]] } }, '2026-01-02': { day: 'C', sets: { x: [[2, 2]] } }, '2026-01-03': { day: 'A', weight: 80, sets: {} } };
+  eq('rotation wraps, skips weigh-in', nextDay(log, '2026-01-04'), 'A');
+  eq('rotation mid', nextDay(log, '2026-01-02'), 'B');
+  eq('first day', nextDay({}, '2026-01-01'), 'A');
+  eq('prev excludes same day', prevSets(log, '2026-01-02', 'x'), [[1, 1]]);
+  eq('routine parse', parseRoutine('스쿼트, 4, 5, 3\n\n컬'), [ex('스쿼트', 4, 5, 5), ex('컬')]);
+  eq('valid', [valid({ log: {}, routine: DEFAULT_ROUTINE }), valid({ log: {} }), valid(null)], [true, false, false]);
+  app.textContent = fails.length ? 'FAIL\n' + fails.join('\n') : 'self-test OK';
+}
+
+if (location.hash === '#test') selfTest(); else show('today');
+navigator.storage?.persist?.();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
